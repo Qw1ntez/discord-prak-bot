@@ -1,31 +1,35 @@
+import discord
+from discord.ext import commands  # ← ДОБАВЬТЕ ЭТО
 from flask import Flask
 from threading import Thread
-import discord
 import os
+import asyncio
 
-# Создаем Flask сервер для мониторинга
 app = Flask('')
 
 @app.route('/')
 def home():
     return "✅ Bot is alive!"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
+Thread(target=run_flask, daemon=True).start()
 
-# Ваш существующий код бота
-bot = discord.Bot()
+# ИСПРАВЛЕННАЯ ЧАСТЬ
+bot = commands.Bot(
+    command_prefix='!',
+    intents=discord.Intents.all()
+)
 
 @bot.event
 async def on_ready():
     print(f'✅ {bot.user} is online!')
 
-# Запускаем мониторинг вместе с ботом
-keep_alive()
+@bot.command()
+async def ping(ctx):
+    await ctx.send(f"🏓 Pong! {round(bot.latency * 1000)}ms")
+
 bot.run(os.getenv('DISCORD_TOKEN'))
 
 import os
