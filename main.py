@@ -117,11 +117,8 @@ class TeamSearchView(discord.ui.View):
 
         view = TeamMatchView(team_name_role.id)
 
-        # Отправляем сообщение и сохраняем его ID
-        await interaction.response.send_message(
-            embed=embed,  # УБРАЛ ДУБЛИРУЮЩЕЕ СООБЩЕНИЕ
-            view=view
-        )
+        # Отправляем ТОЛЬКО embed
+        await interaction.response.send_message(embed=embed, view=view)
 
         # Сохраняем ID сообщения и канала для этой команды
         original_message = await interaction.original_response()
