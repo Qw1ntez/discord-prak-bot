@@ -1,25 +1,9 @@
-from flask import Flask
-from threading import Thread
+import os
 import discord
 from discord.ext import commands
-import os
 import asyncio
 
-# Создаем Flask сервер для мониторинга
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "✅ Bot is alive!"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# ИНИЦИАЛИЗАЦИЯ БОТА (ТОЛЬКО ОДИН РАЗ!)
+# КОД БОТА ДИСКОРДА
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -32,7 +16,7 @@ match_requests = {}
 search_messages = {}
 
 # Роли которые дают доступ к поиску
-ACCESS_ROLES = ["Владелец команды", "Заместитель команды", "Капитан команды"]
+ACCESS_ROLES = ["Владелец команды", "Заместитель/капитан команды"]
 
 class TeamSearchView(discord.ui.View):
     def __init__(self):
@@ -117,8 +101,12 @@ class TeamSearchView(discord.ui.View):
 
         view = TeamMatchView(team_name_role.id)
 
-        # Отправляем ТОЛЬКО embed
-        await interaction.response.send_message(embed=embed, view=view)
+        # Отправляем сообщение и сохраняем его ID
+        await interaction.response.send_message(
+            f"🏆 {user_role_type} команды **{team_name_role.name}** в поиске прака!",
+            embed=embed,
+            view=view
+        )
 
         # Сохраняем ID сообщения и канала для этой команды
         original_message = await interaction.original_response()
@@ -361,11 +349,11 @@ async def auto_stop_search(team_id, captain, delay_seconds):
 @bot.event
 async def on_ready():
     print(f'✅ Бот {bot.user} запущен!')
+    print('🎯 Используй Kaffeine для 24/7 работы: https://kaffeine.herokuapp.com')
     bot.add_view(TeamSearchView())
 
 @bot.command()
 async def поиск(ctx):
-    """Команда для поиска прака"""
     embed = discord.Embed(
         title="🏆 Система поиска командных праков",
         description=f"Нажми кнопку ниже чтобы начать поиск противника для твоей команды!\n\n**Требования:**\n• Одна из ролей: {', '.join([f'**{role}**' for role in ACCESS_ROLES])}\n• Вторая роль с названием команды",
@@ -380,7 +368,6 @@ async def поиск(ctx):
 
 @bot.command()
 async def стоп(ctx):
-    """Остановить поиск для своей команды"""
     user = ctx.author
 
     user_team_roles = [role for role in user.roles 
@@ -416,13 +403,12 @@ async def стоп(ctx):
             stopped = True
 
     if stopped:
-        await ctx.send("✅ Поиск для твоей команды остановлен!")
+        await ctx.send("✅ Поиск для твоей команды остановлен!", ephemeral=True)
     else:
-        await ctx.send("❌ Твоя команда не в поиске!")
+        await ctx.send("❌ Твоя команда не в поиске!", ephemeral=True)
 
 @bot.command()
 async def команды(ctx):
-    """Показать все команды в поиске"""
     if not active_team_searches:
         embed = discord.Embed(
             title="🏆 Активные поиски команд",
@@ -453,6 +439,9 @@ async def команды(ctx):
 
         await ctx.send(embed=embed)
 
-# ЗАПУСК ВСЕГО
-keep_alive()
-bot.run(os.getenv('DISCORD_TOKEN'))
+# ЗАПУСК БОТА
+token = os.getenv('DISCORD_TOKEN')
+if token:
+    bot.run(token)
+else:
+    print("❌ Токен не найден! Установи переменную DISCORD_TOKEN в Secrets.")
