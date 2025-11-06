@@ -1,9 +1,8 @@
 import discord
-from discord.ext import commands  # ← ДОБАВЬТЕ ЭТО
+from discord.ext import commands
 from flask import Flask
 from threading import Thread
 import os
-import asyncio
 
 app = Flask('')
 
@@ -16,11 +15,7 @@ def run_flask():
 
 Thread(target=run_flask, daemon=True).start()
 
-# ИСПРАВЛЕННАЯ ЧАСТЬ
-bot = commands.Bot(
-    command_prefix='!',
-    intents=discord.Intents.all()
-)
+bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
@@ -29,6 +24,26 @@ async def on_ready():
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"🏓 Pong! {round(bot.latency * 1000)}ms")
+
+# ДОБАВЬТЕ КОМАНДУ "ПОИСК"
+@bot.command(name='поиск')  # или используйте name='search'
+async def search(ctx, *, query):
+    """
+    Команда для поиска
+    Использование: !поиск [запрос]
+    """
+    # Замените эту часть на вашу логику поиска
+    await ctx.send(f"🔍 Поиск: {query}\n(здесь будет результат поиска)")
+
+# Если хотите использовать слэш-команды (/поиск)
+@bot.tree.command(name="поиск", description="Поиск чего-либо")
+async def search_slash(interaction: discord.Interaction, query: str):
+    await interaction.response.send_message(f"🔍 Поиск: {query}")
+
+@bot.event
+async def on_connect():
+    # Синхронизация слэш-команд
+    await bot.tree.sync()
 
 bot.run(os.getenv('DISCORD_TOKEN'))
 
