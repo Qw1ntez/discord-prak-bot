@@ -1,3 +1,33 @@
+from flask import Flask
+from threading import Thread
+import discord
+import os
+
+# Создаем Flask сервер для мониторинга
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "✅ Bot is alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Ваш существующий код бота
+bot = discord.Bot()
+
+@bot.event
+async def on_ready():
+    print(f'✅ {bot.user} is online!')
+
+# Запускаем мониторинг вместе с ботом
+keep_alive()
+bot.run(os.getenv('DISCORD_TOKEN'))
+
 import os
 import discord
 from discord.ext import commands
