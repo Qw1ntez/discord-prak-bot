@@ -1,7 +1,9 @@
 from flask import Flask
 from threading import Thread
 import discord
+from discord.ext import commands
 import os
+import asyncio
 
 # Создаем Flask сервер для мониторинга
 app = Flask('')
@@ -17,23 +19,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# Ваш существующий код бота
-bot = discord.Bot()
-
-@bot.event
-async def on_ready():
-    print(f'✅ {bot.user} is online!')
-
-# Запускаем мониторинг вместе с ботом
-keep_alive()
-bot.run(os.getenv('DISCORD_TOKEN'))
-
-import os
-import discord
-from discord.ext import commands
-import asyncio
-
-# КОД БОТА ДИСКОРДА
+# ИНИЦИАЛИЗАЦИЯ БОТА (ТОЛЬКО ОДИН РАЗ!)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -379,7 +365,6 @@ async def auto_stop_search(team_id, captain, delay_seconds):
 @bot.event
 async def on_ready():
     print(f'✅ Бот {bot.user} запущен!')
-    print('🎯 Используй Kaffeine для 24/7 работы: https://kaffeine.herokuapp.com')
     bot.add_view(TeamSearchView())
 
 @bot.command()
@@ -469,9 +454,6 @@ async def команды(ctx):
 
         await ctx.send(embed=embed)
 
-# ЗАПУСК БОТА
-token = os.getenv('DISCORD_TOKEN')
-if token:
-    bot.run(token)
-else:
-    print("❌ Токен не найден! Установи переменную DISCORD_TOKEN в Secrets.")
+# ЗАПУСК ВСЕГО
+keep_alive()
+bot.run(os.getenv('DISCORD_TOKEN'))
