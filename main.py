@@ -4,8 +4,41 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import time
+import logging
+import socket
+import sys
 
-# Создаем Flask сервер для мониторинга
+# ===== ОТЛАДОЧНЫЙ КОД =====
+# Включаем подробные логи
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('discord')
+
+# Счетчик команд
+command_counter = {}
+
+def log_command(command_name, ctx):
+    """Логируем вызов команды"""
+    if command_name not in command_counter:
+        command_counter[command_name] = 0
+    command_counter[command_name] += 1
+    
+    print(f"🔍 КОМАНДА #{command_counter[command_name]}: !{command_name}")
+    print(f"   👤 Пользователь: {ctx.author} (ID: {ctx.author.id})")
+    print(f"   📍 Канал: {ctx.channel} (ID: {ctx.channel.id})")
+    print(f"   🕒 Время: {time.time()}")
+    print("   " + "="*50)
+
+# ===== БЛОКИРОВКА ОТ ДУБЛИРОВАНИЯ =====
+try:
+    lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lock_socket.bind(('localhost', 47200))
+    print("✅ Блокировка установлена - бот запускается...")
+except socket.error:
+    print("❌ Бот уже запущен! Завершите предыдущую копию.")
+    sys.exit(1)
+
+# ===== FLASK СЕРВЕР =====
 app = Flask('')
 
 @app.route('/')
@@ -19,7 +52,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# ИНИЦИАЛИЗАЦИЯ БОТА (ТОЛЬКО ОДИН РАЗ!)
+# ===== ВАШ СУЩЕСТВУЮЩИЙ КОД БОТА =====
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -34,12 +67,29 @@ search_messages = {}
 # Роли которые дают доступ к поиску
 ACCESS_ROLES = ["Владелец команды", "Заместитель команды", "Капитан команды"]
 
+# ===== ОТЛАДКА КОМАНД =====
+@bot.event
+async def on_command(ctx):
+    """Вызывается при каждой команде"""
+    log_command(ctx.command.name, ctx)
+
+@bot.event  
+async def on_command_completion(ctx):
+    """Вызывается после выполнения команды"""
+    print(f"✅ КОМАНДА ВЫПОЛНЕНА: !{ctx.command.name}")
+
+@bot.event
+async def on_command_error(ctx, error):
+    """Вызывается при ошибке команды"""
+    print(f"❌ ОШИБКА КОМАНДЫ !{ctx.command.name}: {error}")
+
 class TeamSearchView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(label='🎯 Найти прак для команды', style=discord.ButtonStyle.green, custom_id='team_search')
     async def search_team_prak(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print("🎯 НАЖАТА КНОПКА 'Найти прак для команды'")
         user = interaction.user
 
         # Проверяем есть ли у пользователя одна из доступных ролей
@@ -117,8 +167,12 @@ class TeamSearchView(discord.ui.View):
 
         view = TeamMatchView(team_name_role.id)
 
-        # Отправляем ТОЛЬКО embed
-        await interaction.response.send_message(embed=embed, view=view)
+        # Отправляем сообщение и сохраняем его ID
+        await interaction.response.send_message(
+            embed=embed,
+            view=view
+        )
+        print("✅ Сообщение поиска отправлено")
 
         # Сохраняем ID сообщения и канала для этой команды
         original_message = await interaction.original_response()
@@ -137,6 +191,7 @@ class TeamMatchView(discord.ui.View):
 
     @discord.ui.button(label='⚔️ Предложить матч', style=discord.ButtonStyle.blurple)
     async def offer_team_match(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print("⚔️ НАЖАТА КНОПКА 'Предложить матч'")
         challenger = interaction.user
 
         # Проверяем есть ли у вызывающего одна из доступных ролей
@@ -232,6 +287,7 @@ class AcceptTeamMatchView(discord.ui.View):
 
     @discord.ui.button(label='✅ Принять матч', style=discord.ButtonStyle.green)
     async def accept_team_match(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print("✅ НАЖАТА КНОПКА 'Принять матч'")
         # Получаем данные матча
         match_data = match_requests.get(self.match_id)
         if not match_data:
@@ -281,6 +337,7 @@ class AcceptTeamMatchView(discord.ui.View):
 
     @discord.ui.button(label='❌ Отклонить', style=discord.ButtonStyle.red)
     async def decline_team_match(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print("❌ НАЖАТА КНОПКА 'Отклонить'")
         match_data = match_requests.get(self.match_id)
         if match_data:
             challenger_captain = match_data['challenger_captain']
@@ -361,11 +418,16 @@ async def auto_stop_search(team_id, captain, delay_seconds):
 @bot.event
 async def on_ready():
     print(f'✅ Бот {bot.user} запущен!')
+    print(f'📊 Всего загружено команд: {len(bot.commands)}')
+    for command in bot.commands:
+        print(f'   - !{command.name}')
     bot.add_view(TeamSearchView())
 
+# ===== ОТЛАДКА ДЛЯ КОМАНД =====
 @bot.command()
 async def поиск(ctx):
-    """Команда для поиска прака"""
+    print("🎯 ВЫЗВАНА КОМАНДА !поиск")
+    
     embed = discord.Embed(
         title="🏆 Система поиска командных праков",
         description=f"Нажми кнопку ниже чтобы начать поиск противника для твоей команды!\n\n**Требования:**\n• Одна из ролей: {', '.join([f'**{role}**' for role in ACCESS_ROLES])}\n• Вторая роль с названием команды",
@@ -377,10 +439,11 @@ async def поиск(ctx):
 
     view = TeamSearchView()
     await ctx.send(embed=embed, view=view)
+    print("✅ Сообщение команды !поиск отправлено")
 
 @bot.command()
 async def стоп(ctx):
-    """Остановить поиск для своей команды"""
+    print("🛑 ВЫЗВАНА КОМАНДА !стоп")
     user = ctx.author
 
     user_team_roles = [role for role in user.roles 
@@ -419,10 +482,11 @@ async def стоп(ctx):
         await ctx.send("✅ Поиск для твоей команды остановлен!")
     else:
         await ctx.send("❌ Твоя команда не в поиске!")
+    print("✅ Команда !стоп выполнена")
 
 @bot.command()
 async def команды(ctx):
-    """Показать все команды в поиске"""
+    print("📋 ВЫЗВАНА КОМАНДА !команды")
     if not active_team_searches:
         embed = discord.Embed(
             title="🏆 Активные поиски команд",
@@ -452,6 +516,7 @@ async def команды(ctx):
             )
 
         await ctx.send(embed=embed)
+    print("✅ Команда !команды выполнена")
 
 # ЗАПУСК ВСЕГО
 keep_alive()
