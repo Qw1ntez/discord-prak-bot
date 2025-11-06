@@ -1,50 +1,31 @@
-import discord
-from discord.ext import commands
 from flask import Flask
 from threading import Thread
+import discord
 import os
 
+# Создаем Flask сервер для мониторинга
 app = Flask('')
 
 @app.route('/')
 def home():
     return "✅ Bot is alive!"
 
-def run_flask():
+def run():
     app.run(host='0.0.0.0', port=8080)
 
-Thread(target=run_flask, daemon=True).start()
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
-bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
+# Ваш существующий код бота
+bot = discord.Bot()
 
 @bot.event
 async def on_ready():
     print(f'✅ {bot.user} is online!')
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send(f"🏓 Pong! {round(bot.latency * 1000)}ms")
-
-# ДОБАВЬТЕ КОМАНДУ "ПОИСК"
-@bot.command(name='поиск')  # или используйте name='search'
-async def search(ctx, *, query):
-    """
-    Команда для поиска
-    Использование: !поиск [запрос]
-    """
-    # Замените эту часть на вашу логику поиска
-    await ctx.send(f"🔍 Поиск: {query}\n(здесь будет результат поиска)")
-
-# Если хотите использовать слэш-команды (/поиск)
-@bot.tree.command(name="поиск", description="Поиск чего-либо")
-async def search_slash(interaction: discord.Interaction, query: str):
-    await interaction.response.send_message(f"🔍 Поиск: {query}")
-
-@bot.event
-async def on_connect():
-    # Синхронизация слэш-команд
-    await bot.tree.sync()
-
+# Запускаем мониторинг вместе с ботом
+keep_alive()
 bot.run(os.getenv('DISCORD_TOKEN'))
 
 import os
